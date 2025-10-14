@@ -1,0 +1,453 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Hevy Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body { 
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        background: #0d1117;
+        color: #c9d1d9;
+        padding: 20px;
+        line-height: 1.6;
+      }
+      header {
+        max-width: 1200px;
+        margin: 0 auto 30px;
+        padding-bottom: 20px;
+        border-bottom: 1px solid #30363d;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      h1 { 
+        font-size: 28px;
+        font-weight: 600;
+        color: #f0f6fc;
+      }
+      nav a {
+        color: #8ab4f8;
+        text-decoration: none;
+        padding: 6px 12px;
+        border-radius: 6px;
+        font-size: 14px;
+        transition: background 0.2s;
+      }
+      nav a:hover {
+        background: #30363d;
+      }
+      main { 
+        max-width: 1200px;
+        margin: 0 auto;
+      }
+      section {
+        background: #161b22;
+        border: 1px solid #30363d;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 20px;
+      }
+      h2 {
+        font-size: 18px;
+        font-weight: 600;
+        color: #f0f6fc;
+        margin-bottom: 16px;
+      }
+      #statsCards {
+        display: grid;
+        grid-template-columns: repeat(6, 1fr);
+        gap: 16px;
+      }
+      @media (max-width: 1200px) {
+        #statsCards {
+          grid-template-columns: repeat(3, 1fr);
+        }
+      }
+      @media (max-width: 768px) {
+        #statsCards {
+          grid-template-columns: repeat(2, 1fr);
+        }
+      }
+      .stat-card {
+        background: #0d1117;
+        border: 1px solid #30363d;
+        border-radius: 6px;
+        padding: 16px;
+      }
+      .stat-value {
+        font-size: 28px;
+        font-weight: 700;
+        color: #8ab4f8;
+        margin-bottom: 4px;
+      }
+      .stat-label {
+        font-size: 13px;
+        color: #8b949e;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+      #heatmap {
+        overflow-x: auto;
+        padding: 10px 0;
+      }
+      .heatmap-container {
+        display: inline-block;
+        min-width: 100%;
+      }
+      .heatmap-months {
+        display: flex;
+        margin-bottom: 4px;
+        padding-left: 30px;
+      }
+      .heatmap-month {
+        font-size: 11px;
+        color: #8b949e;
+        min-width: 13px;
+      }
+      .heatmap-grid {
+        display: flex;
+        gap: 3px;
+      }
+      .heatmap-column {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+      }
+      .heatmap-day-label {
+        width: 30px;
+        height: 11px;
+        font-size: 10px;
+        color: #8b949e;
+        display: flex;
+        align-items: center;
+      }
+      .heatmap-day {
+        width: 11px;
+        height: 11px;
+        border-radius: 2px;
+        background: #161b22;
+        border: 1px solid #30363d;
+        cursor: pointer;
+        position: relative;
+      }
+      .heatmap-day[data-count="0"] { background: #161b22; }
+      .heatmap-day[data-count]:not([data-count="0"]) { background: #0e4429; }
+      .heatmap-day[data-count]:not([data-count="0"]):not([data-count="1"]) { background: #006d32; }
+      .heatmap-day[data-count]:not([data-count="0"]):not([data-count="1"]):not([data-count="2"]) { background: #26a641; }
+      .heatmap-day[data-level="4"] { background: #39d353; }
+      
+      .heatmap-tooltip {
+        position: absolute;
+        background: #1c2128;
+        border: 1px solid #30363d;
+        border-radius: 6px;
+        padding: 8px 10px;
+        font-size: 12px;
+        white-space: nowrap;
+        pointer-events: none;
+        z-index: 1000;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+      }
+      .top-exercises-list {
+        list-style: none;
+      }
+      .top-exercise-item {
+        padding: 10px 0;
+        border-bottom: 1px solid #30363d;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .top-exercise-item:last-child {
+        border-bottom: none;
+      }
+      .exercise-rank {
+        font-size: 16px;
+        font-weight: 700;
+        color: #8b949e;
+        min-width: 24px;
+      }
+      .exercise-details {
+        flex: 1;
+      }
+      .exercise-name {
+        font-size: 14px;
+        color: #f0f6fc;
+        margin-bottom: 4px;
+      }
+      .exercise-bar-container {
+        background: #0d1117;
+        height: 6px;
+        border-radius: 3px;
+        overflow: hidden;
+      }
+      .exercise-bar {
+        background: linear-gradient(90deg, #8ab4f8, #5e9ed6);
+        height: 100%;
+        transition: width 0.3s ease;
+      }
+      .exercise-count {
+        font-size: 13px;
+        color: #8ab4f8;
+        font-weight: 600;
+        min-width: 80px;
+        text-align: right;
+      }
+      .expand-button {
+        width: 100%;
+        background: #21262d;
+        border: 1px solid #30363d;
+        color: #8ab4f8;
+        padding: 10px;
+        border-radius: 6px;
+        font-size: 14px;
+        cursor: pointer;
+        margin-top: 12px;
+        transition: all 0.2s;
+      }
+      .expand-button:hover {
+        background: #30363d;
+        border-color: #8ab4f8;
+      }
+      .hidden {
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>🏋️ Hevy Dashboard</h1>
+      <nav>
+        <a href="/admin">⚙️ Admin</a>
+      </nav>
+    </header>
+    <main>
+      <!-- Stats Cards -->
+      <section>
+        <h2>📊 Summary Statistics</h2>
+        <div id="statsCards"></div>
+      </section>
+
+      <!-- Workout Heatmap -->
+      <section>
+        <h2 id="heatmapTitle">📅 Workout Activity (Past Year)</h2>
+        <div id="heatmap"></div>
+      </section>
+
+      <!-- Top Exercises -->
+      <section>
+        <h2>🏆 Top Exercises</h2>
+        <ul id="topExercises" class="top-exercises-list"></ul>
+      </section>
+    </main>
+
+    <script>
+      // Fetch and display stats
+      async function loadStats() {
+        const response = await fetch('/api/summary');
+        const data = await response.json();
+        
+        const statsHTML = `
+          <div class="stat-card">
+            <div class="stat-value">${data.total_workouts.toLocaleString()}</div>
+            <div class="stat-label">Total Workouts</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value">${data.total_exercises.toLocaleString()}</div>
+            <div class="stat-label">Unique Exercises</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value">${data.total_sets.toLocaleString()}</div>
+            <div class="stat-label">Total Sets</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value">${Math.round(data.total_volume).toLocaleString()}</div>
+            <div class="stat-label">Total Volume (lbs)</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value">${data.weeks_current}</div>
+            <div class="stat-label">Current Active Weeks</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value">${data.weeks_longest}</div>
+            <div class="stat-label">Longest Streak (weeks)</div>
+          </div>
+        `;
+        
+        document.getElementById('statsCards').innerHTML = statsHTML;
+      }
+
+      // Fetch and display heatmap
+      async function loadHeatmap() {
+        const response = await fetch('/api/heatmap-year');
+        const data = await response.json();
+        
+        // Handle both old and new API response formats
+        const days = data.days || data.dates?.map((date, idx) => ({ date, count: data.counts[idx] })) || [];
+        
+        // Update title with workout count
+        const totalWorkouts = days.reduce((sum, day) => sum + day.count, 0);
+        document.getElementById('heatmapTitle').textContent = 
+          `📅 ${totalWorkouts} workout${totalWorkouts !== 1 ? 's' : ''} in the last year`;
+        
+        // Generate heatmap
+        const container = document.getElementById('heatmap');
+        const weeks = [];
+        
+        // Group days into weeks
+        for (let i = 0; i < days.length; i += 7) {
+          weeks.push(days.slice(i, i + 7));
+        }
+        
+        // Generate month labels
+        const monthLabels = [];
+        let lastMonth = -1;
+        weeks.forEach((week, weekIdx) => {
+          if (week.length > 0) {
+            const firstDay = new Date(week[0].date);
+            if (firstDay.getMonth() !== lastMonth) {
+              monthLabels.push({
+                index: weekIdx,
+                label: firstDay.toLocaleDateString('en', { month: 'short' })
+              });
+              lastMonth = firstDay.getMonth();
+            }
+          }
+        });
+        
+        // Create month header
+        const monthsHTML = monthLabels.map(m => {
+          const offset = m.index * 14; // 11px width + 3px gap
+          return `<div class="heatmap-month" style="position:absolute;left:${offset}px">${m.label}</div>`;
+        }).join('');
+        
+        // Create heatmap grid
+        const daysOfWeek = ['Mon', '', 'Wed', '', 'Fri', '', ''];
+        const gridHTML = weeks.map(week => {
+          const daysHTML = week.map(day => {
+            const count = day.count || 0;
+            const level = count === 0 ? 0 : count === 1 ? 1 : count === 2 ? 2 : count >= 3 ? 3 : 4;
+            const dateObj = new Date(day.date);
+            const dateStr = dateObj.toLocaleDateString('en', { month: 'short', day: 'numeric', year: 'numeric' });
+            return `<div class="heatmap-day" data-count="${count}" data-level="${level}" 
+                         data-date="${dateStr}" 
+                         title="${count} workout${count !== 1 ? 's' : ''} on ${dateStr}"></div>`;
+          }).join('');
+          return `<div class="heatmap-column">${daysHTML}</div>`;
+        }).join('');
+        
+        container.innerHTML = `
+          <div class="heatmap-container">
+            <div class="heatmap-months" style="position:relative;height:20px;">${monthsHTML}</div>
+            <div style="display:flex;gap:3px;">
+              <div class="heatmap-column">${daysOfWeek.map(d => 
+                `<div class="heatmap-day-label">${d}</div>`).join('')}</div>
+              ${gridHTML}
+            </div>
+          </div>
+        `;
+        
+        // Add tooltip functionality
+        let tooltip = null;
+        document.querySelectorAll('.heatmap-day').forEach(day => {
+          day.addEventListener('mouseenter', (e) => {
+            const count = e.target.dataset.count;
+            const date = e.target.dataset.date;
+            tooltip = document.createElement('div');
+            tooltip.className = 'heatmap-tooltip';
+            tooltip.textContent = `${count} workout${count !== '1' ? 's' : ''} on ${date}`;
+            document.body.appendChild(tooltip);
+            
+            const rect = e.target.getBoundingClientRect();
+            tooltip.style.position = 'fixed';
+            tooltip.style.left = rect.left + rect.width / 2 - tooltip.offsetWidth / 2 + 'px';
+            tooltip.style.top = rect.top - tooltip.offsetHeight - 8 + 'px';
+          });
+          
+          day.addEventListener('mouseleave', () => {
+            if (tooltip) {
+              tooltip.remove();
+              tooltip = null;
+            }
+          });
+        });
+      }
+
+      // Fetch and display top exercises
+      async function loadTopExercises() {
+        const response = await fetch('/api/top-exercises?limit=12');
+        const data = await response.json();
+        
+        if (!data.exercises || data.exercises.length === 0) {
+          document.getElementById('topExercises').innerHTML = 
+            '<li style="color:#8b949e;padding:20px;text-align:center;">No exercises found. Click "Backfill all" in Admin to sync your data.</li>';
+          return;
+        }
+        
+        const maxCount = Math.max(...data.exercises.map(e => e.count));
+        
+        const createExerciseHTML = (ex, idx) => {
+          const percentage = (ex.count / maxCount) * 100;
+          const isHidden = idx >= 3;
+          return `
+            <li class="top-exercise-item ${isHidden ? 'hidden exercise-extra' : ''}">
+              <div class="exercise-rank">${idx + 1}</div>
+              <div class="exercise-details">
+                <div class="exercise-name">${ex.name}</div>
+                <div class="exercise-bar-container">
+                  <div class="exercise-bar" style="width: ${percentage}%"></div>
+                </div>
+              </div>
+              <div class="exercise-count">${ex.count} workout${ex.count !== 1 ? 's' : ''}</div>
+            </li>
+          `;
+        };
+        
+        const exercisesHTML = data.exercises.map(createExerciseHTML).join('');
+        const hasMore = data.exercises.length > 3;
+        
+        const expandButtonHTML = hasMore ? `
+          <button class="expand-button" onclick="toggleExercises()">
+            <span id="expandText">Show ${data.exercises.length - 3} More</span>
+          </button>
+        ` : '';
+        
+        document.getElementById('topExercises').innerHTML = exercisesHTML + expandButtonHTML;
+      }
+      
+      // Toggle expanded exercises
+      let exercisesExpanded = false;
+      function toggleExercises() {
+        exercisesExpanded = !exercisesExpanded;
+        const extras = document.querySelectorAll('.exercise-extra');
+        const button = document.getElementById('expandText');
+        
+        extras.forEach(ex => {
+          if (exercisesExpanded) {
+            ex.classList.remove('hidden');
+          } else {
+            ex.classList.add('hidden');
+          }
+        });
+        
+        button.textContent = exercisesExpanded ? 'Show Less' : `Show ${extras.length} More`;
+      }
+
+      // Load all data
+      loadStats();
+      loadHeatmap();
+      loadTopExercises();
+      
+      // Auto-refresh every 5 minutes
+      setInterval(() => {
+        loadStats();
+        loadHeatmap();
+        loadTopExercises();
+      }, 5 * 60 * 1000);
+    </script>
+  </body>
+</html>
+

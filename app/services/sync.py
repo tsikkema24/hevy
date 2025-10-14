@@ -93,6 +93,7 @@ async def sync_all_workouts(page_size: int = 50) -> int:
             return 0
 
         inserted = 0
+        updated = 0
         async with get_session() as session:
             for w in workouts:
                 exists = await session.exec(select(Workout).where(Workout.id == w.id))
@@ -101,8 +102,14 @@ async def sync_all_workouts(page_size: int = 50) -> int:
                     session.add(dbw)
                     inserted += 1
                     print(f"[hevy] sync: adding workout {w.id} with {len(w.logs)} exercises")
+                else:
+                    updated += 1
+                    if updated <= 3:
+                        print(f"[hevy] sync: updating workout {w.id} with {len(w.logs)} exercises")
                 # Upsert exercises and sets
                 for log in w.logs:
+                    if inserted + updated <= 3:
+                        print(f"[hevy] sync:   exercise: {log.exercise.name} ({log.exercise.id}) with {len(log.sets)} sets")
                     ex_q = await session.exec(select(Exercise).where(Exercise.id == log.exercise.id))
                     db_ex = ex_q.first()
                     if db_ex is None:

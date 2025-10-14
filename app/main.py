@@ -26,9 +26,15 @@ async def healthz():
 
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
-    settings = get_settings()
     return templates.TemplateResponse(
-        "index.html", {"request": request, "app_name": "Hevy Dashboard"}
+        "dashboard.html", {"request": request}
+    )
+
+
+@app.get("/admin", response_class=HTMLResponse)
+async def admin(request: Request):
+    return templates.TemplateResponse(
+        "admin.html", {"request": request}
     )
 
 
@@ -42,11 +48,11 @@ async def on_startup() -> None:
 async def sync_now(request: Request):
     try:
         inserted = await sync_latest_workouts(limit=50)
-        url = request.url_for("index")
+        url = request.url_for("admin")
         redirect_url = str(url) + f"?synced={inserted}"
         return RedirectResponse(url=redirect_url, status_code=303)
     except Exception:
-        url = request.url_for("index")
+        url = request.url_for("admin")
         return RedirectResponse(url=str(url) + "?error=sync", status_code=303)
 
 
@@ -54,8 +60,23 @@ async def sync_now(request: Request):
 async def sync_all(request: Request):
     try:
         inserted = await sync_all_workouts(page_size=50)
-        url = request.url_for("index")
+        url = request.url_for("admin")
         return RedirectResponse(url=str(url) + f"?backfilled={inserted}", status_code=303)
     except Exception:
-        url = request.url_for("index")
+        url = request.url_for("admin")
         return RedirectResponse(url=str(url) + "?error=backfill", status_code=303)
+
+
+@app.post("/reset-db")
+async def reset_db(request: Request):
+    try:
+        from .db import engine
+        from .models import SQLModel
+        async with engine.begin() as conn:
+            await conn.run_sync(SQLModel.metadata.drop_all)
+            await conn.run_sync(SQLModel.metadata.create_all)
+        url = request.url_for("admin")
+        return RedirectResponse(url=str(url) + "?reset=1", status_code=303)
+    except Exception:
+        url = request.url_for("admin")
+        return RedirectResponse(url=str(url) + "?error=reset", status_code=303)

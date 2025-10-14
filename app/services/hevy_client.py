@@ -180,20 +180,25 @@ async def fetch_latest_workouts(limit: int = 50, include_logs: bool = True) -> L
             # Try to parse inline logs if present
             raw_logs = raw.get("exercises") or raw.get("logs") or raw.get("exerciseLogs") or []
             try:
-                for rl in raw_logs:
+                for idx, rl in enumerate(raw_logs):
+                    # Exercise can be nested or have title field
                     ex = rl.get("exercise") or {}
-                    ex_id = str(ex.get("id") or ex.get("exerciseId") or ex.get("_id") or ex.get("uuid") or ex.get("name", "")).strip()
-                    ex_name = str(ex.get("name") or rl.get("name") or rl.get("exerciseName") or "Unknown").strip()
+                    ex_id = str(rl.get("exercise_template_id") or ex.get("exercise_template_id") or ex.get("id") or ex.get("exerciseId") or ex.get("_id") or ex.get("uuid") or "").strip()
+                    ex_name = str(rl.get("title") or ex.get("title") or ex.get("name") or rl.get("name") or rl.get("exerciseName") or "Unknown").strip()
+                    
                     sets_list = rl.get("sets") or rl.get("set") or []
                     sets: List[HevySet] = []
                     for s in sets_list:
-                        weight = float(s.get("weight") or s.get("kg") or s.get("lbs") or 0)
+                        weight_kg = float(s.get("weight_kg") or s.get("weight") or 0)
                         reps = int(s.get("reps") or s.get("rep") or 0)
                         rpe = s.get("rpe")
-                        sets.append(HevySet(weight=weight, reps=reps, rpe=rpe))
-                    if ex_id or ex_name:
+                        sets.append(HevySet(weight=weight_kg, reps=reps, rpe=rpe))
+                    if ex_id or ex_name != "Unknown":
                         logs.append(HevyExerciseLog(exercise=HevyExercise(id=ex_id or ex_name, name=ex_name), sets=sets))
-            except Exception:
+            except Exception as e:
+                print(f"[hevy] error parsing logs: {e}")
+                import traceback
+                traceback.print_exc()
                 logs = []
 
             # If no logs, try fetching detail
@@ -272,6 +277,8 @@ async def fetch_all_workouts(include_logs: bool = True, page_size: int = 50) -> 
 
             resp.raise_for_status()
             data = resp.json()
+            if page == 1:
+                print(f"[hevy] PAGE 1 SAMPLE: {str(data)[:500]}")
             page_items: List[Dict[str, Any]] = []
             if isinstance(data, dict):
                 if isinstance(data.get("workouts"), list):
@@ -315,22 +322,29 @@ async def fetch_all_workouts(include_logs: bool = True, page_size: int = 50) -> 
             started = raw.get("start_time") or raw.get("started_at") or raw.get("startTime")
             ended = raw.get("end_time") or raw.get("ended_at") or raw.get("endTime")
             logs: List[HevyExerciseLog] = []
-            raw_logs = raw.get("logs") or raw.get("exerciseLogs") or raw.get("exercises") or []
+            raw_logs = raw.get("exercises") or raw.get("logs") or raw.get("exerciseLogs") or []
+            
             try:
                 for rl in raw_logs:
                     ex = rl.get("exercise") or {}
-                    ex_id = str(ex.get("id") or ex.get("exerciseId") or ex.get("_id") or ex.get("uuid") or ex.get("name", "")).strip()
-                    ex_name = str(ex.get("name") or rl.get("name") or rl.get("exerciseName") or "Unknown").strip()
+                    # Use exercise_template_id and title from the exercise log directly
+                    ex_id = str(rl.get("exercise_template_id") or ex.get("exercise_template_id") or ex.get("id") or ex.get("exerciseId") or ex.get("_id") or ex.get("uuid") or "").strip()
+                    ex_name = str(rl.get("title") or ex.get("title") or ex.get("name") or rl.get("name") or rl.get("exerciseName") or "Unknown").strip()
+                    
                     sets_list = rl.get("sets") or rl.get("set") or []
                     sets: List[HevySet] = []
                     for s in sets_list:
-                        weight = float(s.get("weight") or s.get("kg") or s.get("lbs") or 0)
+                        # Use weight_kg field
+                        weight = float(s.get("weight_kg") or s.get("weight") or s.get("kg") or s.get("lbs") or 0)
                         reps = int(s.get("reps") or s.get("rep") or 0)
                         rpe = s.get("rpe")
                         sets.append(HevySet(weight=weight, reps=reps, rpe=rpe))
-                    if ex_id or ex_name:
+                    if ex_id or ex_name != "Unknown":
                         logs.append(HevyExerciseLog(exercise=HevyExercise(id=ex_id or ex_name, name=ex_name), sets=sets))
-            except Exception:
+            except Exception as e:
+                print(f"[hevy] error parsing exercise in backfill: {e}")
+                import traceback
+                traceback.print_exc()
                 logs = []
 
             if include_logs and not logs:
