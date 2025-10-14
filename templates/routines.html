@@ -357,16 +357,34 @@
           let cardClass = 'next-workout-card';
           let icon = '🎯';
           
-          if (data.needs_deload || data.suggested_focus.includes('Active Recovery')) {
+          if (data.recommendation_type === 'deload') {
             cardClass += ' deload';
             icon = '⚠️';
-          } else if (data.suggested_focus.includes('Rest Day')) {
+          } else if (data.recommendation_type === 'rest') {
             cardClass += ' rest';
             icon = '😴';
+          } else if (data.priority === 'high') {
+            icon = '💪';
           }
           
           // Create focus display
           const focusDisplay = data.suggested_focus.join(', ');
+          
+          // Build volume insights display
+          let volumeInsightsHTML = '';
+          if (data.volume_insights && data.volume_insights.length > 0) {
+            const insightsText = data.volume_insights.map(vi => {
+              const trendIcon = vi.trend === 'increasing' ? '📈' : vi.trend === 'declining' ? '📉' : '➡️';
+              const changePct = Math.abs(vi.change_pct).toFixed(0);
+              return `${trendIcon} ${vi.muscle_group}: ${vi.trend} (${vi.change_pct >= 0 ? '+' : ''}${vi.change_pct.toFixed(0)}%)`;
+            }).join(' • ');
+            
+            volumeInsightsHTML = `
+              <div style="margin-top: 16px; padding: 12px; background: rgba(139, 148, 158, 0.1); border-radius: 6px; font-size: 13px; color: #8b949e;">
+                <strong style="color: #c9d1d9;">📊 Volume Trends:</strong> ${insightsText}
+              </div>
+            `;
+          }
           
           document.getElementById('nextWorkout').innerHTML = `
             <div class="${cardClass}">
@@ -378,8 +396,9 @@
                 </div>
               </div>
               <div class="next-workout-reason">
-                💡 ${data.reason}
+                ${data.reason}
               </div>
+              ${volumeInsightsHTML}
             </div>
           `;
           

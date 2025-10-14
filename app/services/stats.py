@@ -953,34 +953,83 @@ async def next_workout() -> Dict[str, Any]:
         # Sort by days since trained (most recovered first)
         ready_groups.sort(key=lambda mg: muscle_group_status[mg]["days_since_trained"], reverse=True)
         
-        # Check deload status
+        # Check deload status and volume trends
         deload_data = await deload_detection()
         needs_deload = deload_data.get("needs_deload", False)
+        deload_confidence = deload_data.get("confidence", "low")
         
-        if needs_deload:
+        # Get volume trends for additional insights
+        volume_data = await volume_trends()
+        volume_insights = []
+        
+        muscle_groups_trends = volume_data.get("muscle_groups", {})
+        for mg_name, mg_data in muscle_groups_trends.items():
+            if mg_name in ready_groups:
+                volume_insights.append({
+                    "muscle_group": mg_name,
+                    "trend": mg_data.get("trend_direction", "stable"),
+                    "change_pct": mg_data.get("trend_percentage", 0)
+                })
+        
+        # Smart recommendation logic
+        if needs_deload and deload_confidence in ["high", "medium"]:
             suggested_focus = ["Active Recovery"]
             priority = "high"
-            reason = "Deload week recommended. Focus on lighter weights, reduced volume, and recovery."
+            reason = "⚠️ Deload week recommended. Your training volume is high and performance indicators suggest you need recovery. Focus on lighter weights (50-60% of max), reduced volume (2 sets per exercise), and mobility work."
+            recommendation_type = "deload"
         elif not ready_groups:
             suggested_focus = ["Rest Day"]
             priority = "medium"
-            reason = "All muscle groups are still recovering. Consider active recovery or a rest day."
+            reason = "All muscle groups are still recovering. Consider active recovery (walking, stretching) or a complete rest day."
+            recommendation_type = "rest"
         else:
             # Suggest top 2-3 muscle groups that are most recovered
-            suggested_focus = ready_groups[:3]
+            # Also consider volume trends - prioritize groups that are underworked
+            
+            # Score each ready group based on recovery + volume trends
+            scored_groups = []
+            for mg in ready_groups:
+                days = muscle_group_status[mg]["days_since_trained"]
+                base_score = days
+                
+                # Bonus for declining volume (needs attention)
+                mg_volume = next((v for v in volume_insights if v["muscle_group"] == mg), None)
+                if mg_volume and mg_volume["trend"] == "declining":
+                    base_score += 2  # Prioritize declining muscle groups
+                elif mg_volume and mg_volume["trend"] == "increasing":
+                    base_score -= 0.5  # Slightly deprioritize already increasing groups
+                
+                scored_groups.append((mg, base_score, days))
+            
+            # Sort by score
+            scored_groups.sort(key=lambda x: x[1], reverse=True)
+            suggested_focus = [mg[0] for mg in scored_groups[:3]]
             
             top_mg = suggested_focus[0]
-            days = muscle_group_status[top_mg]["days_since_trained"]
+            days = scored_groups[0][2]
+            
+            # Check volume trend for top suggestion
+            top_volume = next((v for v in volume_insights if v["muscle_group"] == top_mg), None)
             
             if days >= 5:
                 priority = "high"
-                reason = f"{top_mg} hasn't been trained in {int(days)} days - optimal time to train!"
+                trend_note = ""
+                if top_volume and top_volume["trend"] == "declining":
+                    trend_note = f" Volume has dropped {abs(top_volume['change_pct']):.0f}% recently - time to bring it back up!"
+                reason = f"💪 {top_mg} hasn't been trained in {int(days)} days - optimal time to train!{trend_note}"
             elif days >= 3:
                 priority = "medium"
-                reason = f"{top_mg} is recovered and ready for training."
+                trend_note = ""
+                if top_volume and top_volume["trend"] == "increasing":
+                    trend_note = f" Volume is up {top_volume['change_pct']:.0f}% - maintain this momentum!"
+                elif top_volume and top_volume["trend"] == "declining":
+                    trend_note = f" Volume is down {abs(top_volume['change_pct']):.0f}% - good time to increase intensity."
+                reason = f"✅ {top_mg} is recovered and ready for training.{trend_note}"
             else:
                 priority = "low"
-                reason = f"{top_mg} is available but other muscle groups may be more rested."
+                reason = f"🔄 {top_mg} is available but other muscle groups may be more rested."
+            
+            recommendation_type = "train"
         
         # Get workout predictions for suggested muscle groups
         predictions_data = await workout_predictions()
@@ -1031,9 +1080,12 @@ async def next_workout() -> Dict[str, Any]:
             "suggested_focus": suggested_focus,
             "priority": priority,
             "reason": reason,
+            "recommendation_type": recommendation_type,
             "muscle_group_status": muscle_group_status,
             "ready_to_train": ready_groups,
             "recommended_exercises": relevant_predictions[:6],  # Top 6 exercises
             "needs_deload": needs_deload,
+            "deload_confidence": deload_confidence,
+            "volume_insights": volume_insights,
             "recent_workouts": recent_workout_history
         }
