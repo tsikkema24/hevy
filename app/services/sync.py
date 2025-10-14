@@ -29,7 +29,7 @@ async def sync_latest_workouts(limit: int = 50) -> int:
             for w in workouts:
                 exists = await session.exec(select(Workout).where(Workout.id == w.id))
                 if exists.first() is None:
-                    dbw = Workout(id=w.id, started_at=w.started_at, ended_at=w.ended_at, notes=w.notes)
+                    dbw = Workout(id=w.id, title=w.title, started_at=w.started_at, ended_at=w.ended_at, notes=w.notes)
                     session.add(dbw)
                     inserted += 1
                 else:
@@ -98,14 +98,14 @@ async def sync_all_workouts(page_size: int = 50) -> int:
             for w in workouts:
                 exists = await session.exec(select(Workout).where(Workout.id == w.id))
                 if exists.first() is None:
-                    dbw = Workout(id=w.id, started_at=w.started_at, ended_at=w.ended_at, notes=w.notes)
+                    dbw = Workout(id=w.id, title=w.title, started_at=w.started_at, ended_at=w.ended_at, notes=w.notes)
                     session.add(dbw)
                     inserted += 1
-                    print(f"[hevy] sync: adding workout {w.id} with {len(w.logs)} exercises")
+                    print(f"[hevy] sync: adding workout {w.id} ({w.title or 'Untitled'}) with {len(w.logs)} exercises")
                 else:
                     updated += 1
                     if updated <= 3:
-                        print(f"[hevy] sync: updating workout {w.id} with {len(w.logs)} exercises")
+                        print(f"[hevy] sync: updating workout {w.id} ({w.title or 'Untitled'}) with {len(w.logs)} exercises")
                 # Upsert exercises and sets
                 for log in w.logs:
                     if inserted + updated <= 3:

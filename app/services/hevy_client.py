@@ -27,6 +27,7 @@ class HevyExerciseLog(BaseModel):
 
 class HevyWorkout(BaseModel):
     id: str
+    title: Optional[str] = None
     started_at: datetime
     ended_at: Optional[datetime]
     notes: Optional[str] = None
@@ -224,6 +225,7 @@ async def fetch_latest_workouts(limit: int = 50, include_logs: bool = True) -> L
 
             workout = HevyWorkout(
                 id=str(raw.get("id")),
+                title=raw.get("title"),
                 started_at=_parse_dt(str(started)) or datetime.utcnow(),
                 ended_at=_parse_dt(ended if isinstance(ended, str) else None),
                 notes=raw.get("notes"),
@@ -370,6 +372,7 @@ async def fetch_all_workouts(include_logs: bool = True, page_size: int = 50) -> 
             workouts.append(
                 HevyWorkout(
                     id=str(raw.get("id")),
+                    title=raw.get("title"),
                     started_at=_parse_dt(str(started)) or datetime.utcnow(),
                     ended_at=_parse_dt(ended if isinstance(ended, str) else None),
                     notes=raw.get("notes"),

@@ -215,13 +215,117 @@
       .hidden {
         display: none;
       }
+      .split-detail-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 8px;
+        background: #0d1117;
+        border-radius: 6px;
+        border: 1px solid #30363d;
+      }
+      .split-color-box {
+        width: 16px;
+        height: 16px;
+        border-radius: 3px;
+        flex-shrink: 0;
+      }
+      .split-info {
+        flex: 1;
+      }
+      .split-name {
+        font-size: 14px;
+        font-weight: 600;
+        color: #f0f6fc;
+        margin-bottom: 2px;
+      }
+      .split-stats {
+        font-size: 12px;
+        color: #8b949e;
+      }
+      .split-percentage {
+        font-size: 18px;
+        font-weight: 700;
+        color: #8ab4f8;
+        min-width: 50px;
+        text-align: right;
+      }
+      .exercise-progress-modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.8);
+        z-index: 1000;
+        padding: 20px;
+        overflow-y: auto;
+      }
+      .exercise-progress-modal.show {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .modal-content {
+        background: #161b22;
+        border: 1px solid #30363d;
+        border-radius: 8px;
+        padding: 24px;
+        max-width: 900px;
+        width: 100%;
+        max-height: 90vh;
+        overflow-y: auto;
+        position: relative;
+      }
+      .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        padding-bottom: 16px;
+        border-bottom: 1px solid #30363d;
+      }
+      .modal-close {
+        background: #21262d;
+        border: 1px solid #30363d;
+        color: #8ab4f8;
+        padding: 8px 16px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 14px;
+      }
+      .modal-close:hover {
+        background: #30363d;
+      }
+      .pr-badge {
+        background: linear-gradient(135deg, #ffd700, #ffed4e);
+        color: #0d1117;
+        padding: 4px 12px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: 700;
+        display: inline-block;
+        margin-left: 8px;
+      }
+      .exercise-link {
+        cursor: pointer;
+        transition: color 0.2s;
+      }
+      .exercise-link:hover {
+        color: #8ab4f8;
+        text-decoration: underline;
+      }
     </style>
   </head>
   <body>
     <header>
       <h1>🏋️ Hevy Dashboard</h1>
       <nav>
-        <a href="/admin">⚙️ Admin</a>
+        <a href="/" class="active">Dashboard</a>
+        <a href="/insights">Insights</a>
+        <a href="/routines">Routines</a>
+        <a href="/admin">Admin</a>
       </nav>
     </header>
     <main>
@@ -240,9 +344,37 @@
       <!-- Top Exercises -->
       <section>
         <h2>🏆 Top Exercises</h2>
+        <p style="font-size: 13px; color: #8b949e; margin-bottom: 12px;">
+          Click on an exercise to view progress and PR history
+        </p>
         <ul id="topExercises" class="top-exercises-list"></ul>
       </section>
+
+      <!-- Workout Split -->
+      <section>
+        <h2>💪 Workout Split by Muscle Group</h2>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+          <div>
+            <canvas id="splitChart" style="max-height: 300px;"></canvas>
+          </div>
+          <div id="splitDetails" style="display: flex; flex-direction: column; gap: 8px;"></div>
+        </div>
+      </section>
     </main>
+
+    <!-- Exercise Progress Modal -->
+    <div id="exerciseModal" class="exercise-progress-modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2 id="modalExerciseName" style="margin: 0; font-size: 20px; color: #f0f6fc;"></h2>
+          <button class="modal-close" onclick="closeExerciseModal()">✕ Close</button>
+        </div>
+        <div id="modalContent">
+          <canvas id="progressChart" style="max-height: 300px; margin-bottom: 24px;"></canvas>
+          <div id="prHistory" style="margin-top: 16px;"></div>
+        </div>
+      </div>
+    </div>
 
     <script>
       // Fetch and display stats
@@ -376,6 +508,9 @@
         });
       }
 
+      // Store exercise data for modal
+      let exerciseData = [];
+      
       // Fetch and display top exercises
       async function loadTopExercises() {
         const response = await fetch('/api/top-exercises?limit=12');
@@ -387,6 +522,7 @@
           return;
         }
         
+        exerciseData = data.exercises;
         const maxCount = Math.max(...data.exercises.map(e => e.count));
         
         const createExerciseHTML = (ex, idx) => {
@@ -396,7 +532,9 @@
             <li class="top-exercise-item ${isHidden ? 'hidden exercise-extra' : ''}">
               <div class="exercise-rank">${idx + 1}</div>
               <div class="exercise-details">
-                <div class="exercise-name">${ex.name}</div>
+                <div class="exercise-name exercise-link" onclick="openExerciseModal('${ex.id}', '${ex.name.replace(/'/g, "\\'")}');event.stopPropagation();" title="Click to view progress">
+                  ${ex.name}
+                </div>
                 <div class="exercise-bar-container">
                   <div class="exercise-bar" style="width: ${percentage}%"></div>
                 </div>
@@ -436,15 +574,266 @@
         button.textContent = exercisesExpanded ? 'Show Less' : `Show ${extras.length} More`;
       }
 
+      // Fetch and display workout split
+      let splitChartInstance = null;
+      async function loadWorkoutSplit() {
+        const response = await fetch('/api/workout-split');
+        const data = await response.json();
+        
+        if (!data.splits || data.splits.length === 0) {
+          document.getElementById('splitDetails').innerHTML = 
+            '<div style="color:#8b949e;padding:20px;text-align:center;grid-column:1/-1;">No workout data available.</div>';
+          return;
+        }
+        
+        // Color palette for muscle groups
+        const colors = [
+          '#8ab4f8', '#5e9ed6', '#4a8bc2', '#3d7dad', '#2e5f8a',
+          '#6ba5d6', '#9fc5e8', '#7aa3c7', '#5a8bb5', '#4576a3'
+        ];
+        
+        const totalWorkouts = data.splits.reduce((sum, s) => sum + s.workout_count, 0);
+        
+        // Prepare chart data
+        const labels = data.splits.map(s => s.name);
+        const chartData = data.splits.map(s => s.workout_count);
+        const backgroundColors = data.splits.map((s, idx) => colors[idx % colors.length]);
+        
+        // Create or update chart
+        const ctx = document.getElementById('splitChart').getContext('2d');
+        
+        if (splitChartInstance) {
+          splitChartInstance.destroy();
+        }
+        
+        splitChartInstance = new Chart(ctx, {
+          type: 'doughnut',
+          data: {
+            labels: labels,
+            datasets: [{
+              data: chartData,
+              backgroundColor: backgroundColors,
+              borderColor: '#161b22',
+              borderWidth: 2
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+              legend: {
+                display: false
+              },
+              tooltip: {
+                backgroundColor: '#1c2128',
+                titleColor: '#f0f6fc',
+                bodyColor: '#c9d1d9',
+                borderColor: '#30363d',
+                borderWidth: 1,
+                padding: 12,
+                displayColors: true,
+                callbacks: {
+                  label: function(context) {
+                    const split = data.splits[context.dataIndex];
+                    const percentage = ((split.workout_count / totalWorkouts) * 100).toFixed(1);
+                    return [
+                      `${split.workout_count} workouts (${percentage}%)`,
+                      `${split.exercise_count} exercises`,
+                      `${Math.round(split.total_volume).toLocaleString()} lbs volume`
+                    ];
+                  }
+                }
+              }
+            }
+          }
+        });
+        
+        // Create details list
+        const detailsHTML = data.splits.map((split, idx) => {
+          const percentage = ((split.workout_count / totalWorkouts) * 100).toFixed(1);
+          const color = colors[idx % colors.length];
+          return `
+            <div class="split-detail-item">
+              <div class="split-color-box" style="background: ${color};"></div>
+              <div class="split-info">
+                <div class="split-name">${split.name}</div>
+                <div class="split-stats">
+                  ${split.exercise_count} exercises • ${Math.round(split.total_volume).toLocaleString()} lbs
+                </div>
+              </div>
+              <div class="split-percentage">${percentage}%</div>
+            </div>
+          `;
+        }).join('');
+        
+        document.getElementById('splitDetails').innerHTML = detailsHTML;
+      }
+
+      // Exercise Progress Modal
+      let progressChartInstance = null;
+      
+      async function openExerciseModal(exerciseId, exerciseName) {
+        document.getElementById('modalExerciseName').textContent = exerciseName;
+        document.getElementById('exerciseModal').classList.add('show');
+        
+        // Fetch exercise progress data
+        try {
+          const response = await fetch(`/api/exercise/${encodeURIComponent(exerciseId)}/progress`);
+          const data = await response.json();
+          
+          if (data.error) {
+            document.getElementById('modalContent').innerHTML = 
+              '<p style="color:#8b949e;text-align:center;padding:40px;">Error loading exercise data.</p>';
+            return;
+          }
+          
+          // Update title with PR badge
+          if (data.current_pr) {
+            document.getElementById('modalExerciseName').innerHTML = 
+              `${exerciseName} <span class="pr-badge">PR: ${data.current_pr} lbs</span>`;
+          }
+          
+          // Prepare chart data
+          const dates = data.history.map(h => h.date);
+          const volumes = data.history.map(h => h.volume);
+          const maxWeights = data.history.map(h => h.max_weight);
+          
+          // Create chart
+          const ctx = document.getElementById('progressChart').getContext('2d');
+          
+          if (progressChartInstance) {
+            progressChartInstance.destroy();
+          }
+          
+          progressChartInstance = new Chart(ctx, {
+            type: 'line',
+            data: {
+              labels: dates,
+              datasets: [
+                {
+                  label: 'Volume (lbs)',
+                  data: volumes,
+                  borderColor: '#8ab4f8',
+                  backgroundColor: 'rgba(138, 180, 248, 0.1)',
+                  yAxisID: 'y',
+                  tension: 0.3,
+                  fill: true,
+                },
+                {
+                  label: 'Max Weight (lbs)',
+                  data: maxWeights,
+                  borderColor: '#ffd700',
+                  backgroundColor: 'rgba(255, 215, 0, 0.1)',
+                  yAxisID: 'y1',
+                  tension: 0.3,
+                  borderWidth: 2,
+                }
+              ]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: true,
+              interaction: {
+                mode: 'index',
+                intersect: false,
+              },
+              plugins: {
+                legend: {
+                  labels: {
+                    color: '#c9d1d9',
+                    font: { size: 12 }
+                  }
+                },
+                tooltip: {
+                  backgroundColor: '#1c2128',
+                  titleColor: '#f0f6fc',
+                  bodyColor: '#c9d1d9',
+                  borderColor: '#30363d',
+                  borderWidth: 1,
+                  padding: 12,
+                }
+              },
+              scales: {
+                x: {
+                  ticks: { color: '#8b949e', maxRotation: 45 },
+                  grid: { color: '#30363d' }
+                },
+                y: {
+                  type: 'linear',
+                  display: true,
+                  position: 'left',
+                  ticks: { color: '#8ab4f8' },
+                  grid: { color: '#30363d' },
+                  title: {
+                    display: true,
+                    text: 'Volume (lbs)',
+                    color: '#8ab4f8'
+                  }
+                },
+                y1: {
+                  type: 'linear',
+                  display: true,
+                  position: 'right',
+                  ticks: { color: '#ffd700' },
+                  grid: { drawOnChartArea: false },
+                  title: {
+                    display: true,
+                    text: 'Max Weight (lbs)',
+                    color: '#ffd700'
+                  }
+                }
+              }
+            }
+          });
+          
+          // Show PR history
+          const prHTML = data.prs.length > 0 ? `
+            <h3 style="font-size: 16px; color: #f0f6fc; margin-bottom: 12px;">🏆 Personal Records (${data.prs.length})</h3>
+            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px;">
+              ${data.prs.map(pr => `
+                <div style="background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:12px;">
+                  <div style="font-size:20px;font-weight:700;color:#ffd700;">${pr.weight} lbs</div>
+                  <div style="font-size:12px;color:#8b949e;">${new Date(pr.date).toLocaleDateString('en', {month: 'short', day: 'numeric', year: 'numeric'})}</div>
+                </div>
+              `).join('')}
+            </div>
+          ` : '<p style="color:#8b949e;">No PRs recorded yet.</p>';
+          
+          document.getElementById('prHistory').innerHTML = prHTML;
+          
+        } catch (error) {
+          console.error('Error loading exercise data:', error);
+          document.getElementById('modalContent').innerHTML = 
+            '<p style="color:#f28482;text-align:center;padding:40px;">Failed to load exercise data.</p>';
+        }
+      }
+      
+      function closeExerciseModal() {
+        document.getElementById('exerciseModal').classList.remove('show');
+        if (progressChartInstance) {
+          progressChartInstance.destroy();
+          progressChartInstance = null;
+        }
+      }
+      
+      // Close modal on background click
+      document.getElementById('exerciseModal').addEventListener('click', function(e) {
+        if (e.target === this) {
+          closeExerciseModal();
+        }
+      });
+
       // Load all data
       loadStats();
       loadHeatmap();
+      loadWorkoutSplit();
       loadTopExercises();
       
       // Auto-refresh every 5 minutes
       setInterval(() => {
         loadStats();
         loadHeatmap();
+        loadWorkoutSplit();
         loadTopExercises();
       }, 5 * 60 * 1000);
     </script>

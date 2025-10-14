@@ -1,0 +1,655 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Insights - Hevy Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body { 
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        background: #0d1117;
+        color: #c9d1d9;
+        padding: 20px;
+        line-height: 1.6;
+      }
+      header {
+        max-width: 1400px;
+        margin: 0 auto 30px;
+        padding-bottom: 20px;
+        border-bottom: 1px solid #30363d;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      h1 { 
+        font-size: 28px;
+        font-weight: 600;
+        color: #f0f6fc;
+      }
+      nav {
+        display: flex;
+        gap: 12px;
+      }
+      nav a {
+        color: #8ab4f8;
+        text-decoration: none;
+        padding: 6px 12px;
+        border-radius: 6px;
+        font-size: 14px;
+        transition: background 0.2s;
+      }
+      nav a:hover {
+        background: #30363d;
+      }
+      nav a.active {
+        background: #30363d;
+        font-weight: 600;
+      }
+      main { 
+        max-width: 1400px;
+        margin: 0 auto;
+      }
+      section {
+        background: #161b22;
+        border: 1px solid #30363d;
+        border-radius: 8px;
+        padding: 24px;
+        margin-bottom: 20px;
+      }
+      h2 {
+        font-size: 18px;
+        font-weight: 600;
+        color: #f0f6fc;
+        margin-bottom: 16px;
+      }
+      .description {
+        font-size: 14px;
+        color: #8b949e;
+        margin-bottom: 20px;
+      }
+      .muscle-group-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+        gap: 20px;
+        margin-top: 24px;
+      }
+      .muscle-group-card {
+        background: #0d1117;
+        border: 1px solid #30363d;
+        border-radius: 8px;
+        padding: 20px;
+      }
+      .muscle-group-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 16px;
+      }
+      .muscle-group-name {
+        font-size: 16px;
+        font-weight: 700;
+        color: #f0f6fc;
+      }
+      .trend-badge {
+        padding: 4px 12px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: 700;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+      }
+      .trend-badge.increasing {
+        background: rgba(38, 166, 65, 0.2);
+        color: #39d353;
+        border: 1px solid #26a641;
+      }
+      .trend-badge.decreasing {
+        background: rgba(242, 132, 130, 0.2);
+        color: #f28482;
+        border: 1px solid #da3633;
+      }
+      .trend-badge.stable {
+        background: rgba(138, 180, 248, 0.2);
+        color: #8ab4f8;
+        border: 1px solid #5e9ed6;
+      }
+      .muscle-group-stats {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+        margin-bottom: 16px;
+      }
+      .stat-box {
+        background: #161b22;
+        border: 1px solid #30363d;
+        border-radius: 6px;
+        padding: 12px;
+      }
+      .stat-value {
+        font-size: 20px;
+        font-weight: 700;
+        color: #8ab4f8;
+        margin-bottom: 2px;
+      }
+      .stat-label {
+        font-size: 11px;
+        color: #8b949e;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+      .chart-container {
+        position: relative;
+        height: 200px;
+        margin-top: 12px;
+      }
+      .no-data {
+        color: #8b949e;
+        text-align: center;
+        padding: 40px 20px;
+        font-size: 14px;
+      }
+      .loading {
+        text-align: center;
+        padding: 60px 20px;
+        color: #8b949e;
+        font-size: 16px;
+      }
+      .summary-cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 16px;
+        margin-bottom: 24px;
+      }
+      .summary-card {
+        background: #0d1117;
+        border: 1px solid #30363d;
+        border-radius: 6px;
+        padding: 20px;
+        text-align: center;
+      }
+      .summary-value {
+        font-size: 32px;
+        font-weight: 700;
+        color: #8ab4f8;
+        margin-bottom: 8px;
+      }
+      .summary-label {
+        font-size: 13px;
+        color: #8b949e;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+      .prediction-card {
+        background: #0d1117;
+        border: 1px solid #30363d;
+        border-radius: 8px;
+        padding: 16px;
+        margin-bottom: 12px;
+      }
+      .prediction-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 12px;
+      }
+      .prediction-exercise {
+        font-size: 15px;
+        font-weight: 700;
+        color: #f0f6fc;
+      }
+      .prediction-muscle-tag {
+        padding: 4px 10px;
+        border-radius: 12px;
+        font-size: 11px;
+        font-weight: 600;
+        background: rgba(138, 180, 248, 0.2);
+        color: #8ab4f8;
+      }
+      .prediction-details {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+        gap: 12px;
+        margin-bottom: 12px;
+      }
+      .prediction-detail-item {
+        background: #161b22;
+        border: 1px solid #30363d;
+        border-radius: 6px;
+        padding: 10px;
+        text-align: center;
+      }
+      .prediction-detail-value {
+        font-size: 18px;
+        font-weight: 700;
+        color: #8ab4f8;
+        margin-bottom: 2px;
+      }
+      .prediction-detail-label {
+        font-size: 10px;
+        color: #8b949e;
+        text-transform: uppercase;
+      }
+      .prediction-recommendation {
+        background: rgba(38, 166, 65, 0.1);
+        border: 1px solid #26a641;
+        border-radius: 6px;
+        padding: 10px 12px;
+        font-size: 13px;
+        color: #7ee787;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .deload-alert {
+        background: #161b22;
+        border: 2px solid;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 20px;
+      }
+      .deload-alert.needed {
+        border-color: #da3633;
+        background: rgba(218, 54, 51, 0.05);
+      }
+      .deload-alert.watch {
+        border-color: #ffa657;
+        background: rgba(255, 166, 87, 0.05);
+      }
+      .deload-alert.good {
+        border-color: #26a641;
+        background: rgba(38, 166, 65, 0.05);
+      }
+      .deload-header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 12px;
+      }
+      .deload-icon {
+        font-size: 32px;
+      }
+      .deload-title {
+        font-size: 18px;
+        font-weight: 700;
+        color: #f0f6fc;
+        margin-bottom: 4px;
+      }
+      .deload-reason {
+        font-size: 14px;
+        color: #8b949e;
+      }
+      .deload-recommendations {
+        list-style: none;
+        margin-top: 12px;
+      }
+      .deload-recommendations li {
+        padding: 8px 12px;
+        background: #0d1117;
+        border-left: 3px solid #8ab4f8;
+        margin-bottom: 8px;
+        border-radius: 4px;
+        font-size: 13px;
+        color: #c9d1d9;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>📈 Training Insights</h1>
+      <nav>
+        <a href="/">Dashboard</a>
+        <a href="/insights" class="active">Insights</a>
+        <a href="/routines">Routines</a>
+        <a href="/admin">Admin</a>
+      </nav>
+    </header>
+    <main>
+      <!-- Workout Predictions -->
+      <section>
+        <h2>🎯 AI Workout Predictions</h2>
+        <p class="description">
+          Smart weight recommendations for your next workout based on recent performance and progression patterns.
+        </p>
+        <div id="workoutPredictions" class="loading">Analyzing your training data...</div>
+      </section>
+
+      <!-- Summary Overview -->
+      <section>
+        <h2>📊 Volume Overview (Past 12 Weeks)</h2>
+        <div id="summaryCards" class="summary-cards"></div>
+      </section>
+
+      <!-- Volume Trends by Muscle Group -->
+      <section>
+        <h2>💪 Volume Progression by Muscle Group</h2>
+        <p class="description">
+          Track your training volume trends across major muscle groups. The trend indicator shows whether 
+          your volume is increasing, stable, or decreasing based on the first half vs second half of the period.
+        </p>
+        <div id="muscleGroupTrends" class="loading">Loading volume trends...</div>
+      </section>
+    </main>
+
+    <script>
+      let chartInstances = {};
+
+      // Load workout predictions
+      async function loadWorkoutPredictions() {
+        try {
+          const response = await fetch('/api/workout-predictions');
+          const data = await response.json();
+          
+          if (!data.predictions || data.predictions.length === 0) {
+            document.getElementById('workoutPredictions').innerHTML = 
+              '<div class="no-data">Not enough training data yet. Complete a few more workouts to get predictions!</div>';
+            return;
+          }
+
+          const predictionsHTML = data.predictions.map(pred => {
+            const weightChange = pred.recommended_weight - pred.current_max_weight;
+            const changeIcon = weightChange > 0 ? '⬆️' : weightChange < 0 ? '⬇️' : '➡️';
+            const changeColor = weightChange > 0 ? '#7ee787' : weightChange < 0 ? '#ffa657' : '#8ab4f8';
+            
+            return `
+              <div class="prediction-card">
+                <div class="prediction-header">
+                  <div class="prediction-exercise">${pred.exercise_name}</div>
+                  <div class="prediction-muscle-tag">${pred.muscle_group}</div>
+                </div>
+                
+                <div class="prediction-details">
+                  <div class="prediction-detail-item">
+                    <div class="prediction-detail-value">${pred.current_max_weight} lbs</div>
+                    <div class="prediction-detail-label">Current Max</div>
+                  </div>
+                  <div class="prediction-detail-item" style="background:#161b22;">
+                    <div class="prediction-detail-value" style="color:${changeColor};">
+                      ${changeIcon} ${pred.recommended_weight} lbs
+                    </div>
+                    <div class="prediction-detail-label">Recommended</div>
+                  </div>
+                  <div class="prediction-detail-item">
+                    <div class="prediction-detail-value">${pred.recommended_sets}</div>
+                    <div class="prediction-detail-label">Sets</div>
+                  </div>
+                  <div class="prediction-detail-item">
+                    <div class="prediction-detail-value">${pred.recommended_reps}</div>
+                    <div class="prediction-detail-label">Reps</div>
+                  </div>
+                </div>
+                
+                <div class="prediction-recommendation">
+                  <span>💡</span>
+                  <span>${pred.reason}</span>
+                </div>
+              </div>
+            `;
+          }).join('');
+          
+          document.getElementById('workoutPredictions').innerHTML = predictionsHTML;
+          
+        } catch (error) {
+          console.error('Error loading predictions:', error);
+          document.getElementById('workoutPredictions').innerHTML = 
+            '<div class="no-data" style="color:#f28482;">Error loading predictions. Please try again later.</div>';
+        }
+      }
+
+      // Load deload detection
+      async function loadDeloadDetection() {
+        try {
+          const response = await fetch('/api/deload-detection');
+          const data = await response.json();
+          
+          let alertClass = 'good';
+          let icon = '✅';
+          let title = 'Training Volume Optimal';
+          
+          if (data.needs_deload) {
+            alertClass = 'needed';
+            icon = '⚠️';
+            title = 'Deload Week Recommended';
+          } else if (data.deload_score >= 1) {
+            alertClass = 'watch';
+            icon = '👀';
+            title = 'Monitor Recovery';
+          }
+          
+          const recommendationsHTML = data.recommendations && data.recommendations.length > 0 ? `
+            <ul class="deload-recommendations">
+              ${data.recommendations.map(rec => `<li>${rec}</li>`).join('')}
+            </ul>
+          ` : '';
+          
+          const indicatorsHTML = data.indicators && data.indicators.length > 0 ? `
+            <div style="margin-top: 12px; padding: 12px; background: #0d1117; border-radius: 6px;">
+              <div style="font-size: 12px; color: #8b949e; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">Indicators:</div>
+              ${data.indicators.map(ind => `<div style="font-size: 13px; color: #ffa657; margin-bottom: 4px;">• ${ind}</div>`).join('')}
+            </div>
+          ` : '';
+          
+          document.getElementById('deloadAlert').innerHTML = `
+            <div class="deload-alert ${alertClass}">
+              <div class="deload-header">
+                <div class="deload-icon">${icon}</div>
+                <div>
+                  <div class="deload-title">${title}</div>
+                  <div class="deload-reason">${data.reason}</div>
+                </div>
+              </div>
+              ${indicatorsHTML}
+              ${recommendationsHTML}
+            </div>
+          `;
+          
+        } catch (error) {
+          console.error('Error loading deload detection:', error);
+          // Don't show error for deload detection, just skip it
+          document.getElementById('deloadAlert').innerHTML = '';
+        }
+      }
+
+      async function loadVolumeTrends() {
+        try {
+          const response = await fetch('/api/volume-trends?weeks=12');
+          const data = await response.json();
+          
+          if (!data.muscle_groups || Object.keys(data.muscle_groups).length === 0) {
+            document.getElementById('muscleGroupTrends').innerHTML = 
+              '<div class="no-data">No volume data available. Make sure you\'ve synced your workouts from the Admin page.</div>';
+            document.getElementById('summaryCards').innerHTML = '';
+            return;
+          }
+
+          // Create summary cards
+          const muscleGroups = Object.keys(data.muscle_groups);
+          const summaryHTML = `
+            <div class="summary-card">
+              <div class="summary-value">${data.weeks_analyzed}</div>
+              <div class="summary-label">Weeks Analyzed</div>
+            </div>
+            <div class="summary-card">
+              <div class="summary-value">${muscleGroups.length}</div>
+              <div class="summary-label">Muscle Groups Tracked</div>
+            </div>
+            <div class="summary-card">
+              <div class="summary-value">${
+                muscleGroups.filter(mg => data.muscle_groups[mg].trend_direction === 'increasing').length
+              }</div>
+              <div class="summary-label">Volume Increasing</div>
+            </div>
+            <div class="summary-card">
+              <div class="summary-value">${
+                Math.round(Object.values(data.muscle_groups).reduce((sum, mg) => sum + mg.total_volume, 0)).toLocaleString()
+              }</div>
+              <div class="summary-label">Total Volume (lbs)</div>
+            </div>
+          `;
+          document.getElementById('summaryCards').innerHTML = summaryHTML;
+
+          // Create muscle group cards
+          const muscleGroupColors = {
+            'Chest': '#8ab4f8',
+            'Biceps': '#3d7dad',
+            'Triceps': '#5a8bb5',
+            'Back': '#5e9ed6',
+            'Shoulders': '#4a8bc2',
+            'Legs': '#6ba5d6',
+          };
+
+          const trendsHTML = muscleGroups.map(muscleGroup => {
+            const mgData = data.muscle_groups[muscleGroup];
+            const color = muscleGroupColors[muscleGroup] || '#8ab4f8';
+            
+            // Trend icon
+            const trendIcon = mgData.trend_direction === 'increasing' ? '📈' : 
+                             mgData.trend_direction === 'decreasing' ? '📉' : '➡️';
+            
+            // Trend text
+            const trendText = mgData.trend_direction === 'increasing' ? 
+              `+${mgData.trend_percentage}%` : 
+              mgData.trend_direction === 'decreasing' ? 
+              `${mgData.trend_percentage}%` : 
+              'Stable';
+
+            return `
+              <div class="muscle-group-card">
+                <div class="muscle-group-header">
+                  <div class="muscle-group-name">${muscleGroup}</div>
+                  <div class="trend-badge ${mgData.trend_direction}">
+                    ${trendIcon} ${trendText}
+                  </div>
+                </div>
+                
+                <div class="muscle-group-stats">
+                  <div class="stat-box">
+                    <div class="stat-value">${Math.round(mgData.total_volume).toLocaleString()}</div>
+                    <div class="stat-label">Total Volume (lbs)</div>
+                  </div>
+                  <div class="stat-box">
+                    <div class="stat-value">${Math.round(mgData.avg_weekly_volume).toLocaleString()}</div>
+                    <div class="stat-label">Avg Weekly (lbs)</div>
+                  </div>
+                </div>
+                
+                <div class="chart-container">
+                  <canvas id="chart-${muscleGroup.replace(/\s+/g, '-')}"></canvas>
+                </div>
+              </div>
+            `;
+          }).join('');
+
+          document.getElementById('muscleGroupTrends').innerHTML = 
+            `<div class="muscle-group-grid">${trendsHTML}</div>`;
+
+          // Create charts for each muscle group
+          muscleGroups.forEach(muscleGroup => {
+            const mgData = data.muscle_groups[muscleGroup];
+            const color = muscleGroupColors[muscleGroup] || '#8ab4f8';
+            const canvasId = `chart-${muscleGroup.replace(/\s+/g, '-')}`;
+            const ctx = document.getElementById(canvasId).getContext('2d');
+            
+            // Clean up existing chart if it exists
+            if (chartInstances[canvasId]) {
+              chartInstances[canvasId].destroy();
+            }
+
+            chartInstances[canvasId] = new Chart(ctx, {
+              type: 'line',
+              data: {
+                labels: data.weeks,
+                datasets: [{
+                  label: 'Weekly Volume (lbs)',
+                  data: mgData.weekly_volumes,
+                  borderColor: color,
+                  backgroundColor: `${color}33`,
+                  tension: 0.3,
+                  fill: true,
+                  pointRadius: 4,
+                  pointHoverRadius: 6,
+                  pointBackgroundColor: color,
+                  pointBorderColor: '#161b22',
+                  pointBorderWidth: 2,
+                }]
+              },
+              options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                  mode: 'index',
+                  intersect: false,
+                },
+                plugins: {
+                  legend: {
+                    display: false
+                  },
+                  tooltip: {
+                    backgroundColor: '#1c2128',
+                    titleColor: '#f0f6fc',
+                    bodyColor: '#c9d1d9',
+                    borderColor: '#30363d',
+                    borderWidth: 1,
+                    padding: 12,
+                    displayColors: true,
+                    callbacks: {
+                      label: function(context) {
+                        return `${Math.round(context.parsed.y).toLocaleString()} lbs`;
+                      }
+                    }
+                  }
+                },
+                scales: {
+                  x: {
+                    ticks: { 
+                      color: '#8b949e',
+                      font: { size: 10 },
+                      maxRotation: 45,
+                      minRotation: 45
+                    },
+                    grid: { 
+                      color: '#30363d',
+                      drawBorder: false
+                    }
+                  },
+                  y: {
+                    ticks: { 
+                      color: '#8b949e',
+                      font: { size: 10 },
+                      callback: function(value) {
+                        return Math.round(value).toLocaleString();
+                      }
+                    },
+                    grid: { 
+                      color: '#30363d',
+                      drawBorder: false
+                    },
+                    beginAtZero: true
+                  }
+                }
+              }
+            });
+          });
+
+        } catch (error) {
+          console.error('Error loading volume trends:', error);
+          document.getElementById('muscleGroupTrends').innerHTML = 
+            '<div class="no-data" style="color:#f28482;">Error loading volume trends. Please try again later.</div>';
+        }
+      }
+
+      // Load all data on page load
+      loadWorkoutPredictions();
+      loadVolumeTrends();
+
+      // Auto-refresh every 5 minutes
+      setInterval(() => {
+        loadWorkoutPredictions();
+        loadVolumeTrends();
+      }, 5 * 60 * 1000);
+    </script>
+  </body>
+</html>
+

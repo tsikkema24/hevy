@@ -8,6 +8,7 @@ from sqlmodel import SQLModel, Field
 
 class Workout(SQLModel, table=True):
     id: str = Field(primary_key=True)
+    title: Optional[str] = None
     started_at: datetime
     ended_at: Optional[datetime] = None
     notes: Optional[str] = None

@@ -27,6 +27,10 @@
         font-weight: 600;
         color: #f0f6fc;
       }
+      nav {
+        display: flex;
+        gap: 12px;
+      }
       nav a {
         color: #8ab4f8;
         text-decoration: none;
@@ -37,6 +41,10 @@
       }
       nav a:hover {
         background: #30363d;
+      }
+      nav a.active {
+        background: #30363d;
+        font-weight: 600;
       }
       main { 
         max-width: 800px;
@@ -190,7 +198,10 @@
     <header>
       <h1>⚙️ Admin Panel</h1>
       <nav>
-        <a href="/">← Back to Dashboard</a>
+        <a href="/">Dashboard</a>
+        <a href="/insights">Insights</a>
+        <a href="/routines">Routines</a>
+        <a href="/admin" class="active">Admin</a>
       </nav>
     </header>
     <main>

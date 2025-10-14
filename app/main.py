@@ -38,6 +38,20 @@ async def admin(request: Request):
     )
 
 
+@app.get("/insights", response_class=HTMLResponse)
+async def insights(request: Request):
+    return templates.TemplateResponse(
+        "insights.html", {"request": request}
+    )
+
+
+@app.get("/routines", response_class=HTMLResponse)
+async def routines(request: Request):
+    return templates.TemplateResponse(
+        "routines.html", {"request": request}
+    )
+
+
 @app.on_event("startup")
 async def on_startup() -> None:
     await init_db()

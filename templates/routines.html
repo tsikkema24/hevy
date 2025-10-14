@@ -1,0 +1,524 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Routines - Hevy Dashboard</title>
+    <style>
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body { 
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        background: #0d1117;
+        color: #c9d1d9;
+        padding: 20px;
+        line-height: 1.6;
+      }
+      header {
+        max-width: 1200px;
+        margin: 0 auto 30px;
+        padding-bottom: 20px;
+        border-bottom: 1px solid #30363d;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      h1 { 
+        font-size: 28px;
+        font-weight: 600;
+        color: #f0f6fc;
+      }
+      nav {
+        display: flex;
+        gap: 12px;
+      }
+      nav a {
+        color: #8ab4f8;
+        text-decoration: none;
+        padding: 6px 12px;
+        border-radius: 6px;
+        font-size: 14px;
+        transition: background 0.2s;
+      }
+      nav a:hover {
+        background: #30363d;
+      }
+      nav a.active {
+        background: #30363d;
+        font-weight: 600;
+      }
+      main { 
+        max-width: 1200px;
+        margin: 0 auto;
+      }
+      section {
+        background: #161b22;
+        border: 1px solid #30363d;
+        border-radius: 8px;
+        padding: 24px;
+        margin-bottom: 20px;
+      }
+      h2 {
+        font-size: 20px;
+        font-weight: 600;
+        color: #f0f6fc;
+        margin-bottom: 16px;
+      }
+      .next-workout-card {
+        background: linear-gradient(135deg, #1a472a 0%, #0d1117 100%);
+        border: 2px solid #26a641;
+        border-radius: 12px;
+        padding: 32px;
+        margin-bottom: 24px;
+      }
+      .next-workout-card.deload {
+        background: linear-gradient(135deg, #4a1a1a 0%, #0d1117 100%);
+        border-color: #da3633;
+      }
+      .next-workout-card.rest {
+        background: linear-gradient(135deg, #1a2a4a 0%, #0d1117 100%);
+        border-color: #8ab4f8;
+      }
+      .next-workout-header {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        margin-bottom: 20px;
+      }
+      .next-workout-icon {
+        font-size: 48px;
+      }
+      .next-workout-title {
+        font-size: 32px;
+        font-weight: 700;
+        color: #f0f6fc;
+        margin-bottom: 4px;
+      }
+      .next-workout-subtitle {
+        font-size: 16px;
+        color: #8b949e;
+      }
+      .next-workout-reason {
+        font-size: 16px;
+        color: #c9d1d9;
+        padding: 16px;
+        background: rgba(0, 0, 0, 0.3);
+        border-radius: 8px;
+        margin-top: 16px;
+        border-left: 4px solid #26a641;
+      }
+      .muscle-group-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 16px;
+        margin-bottom: 24px;
+      }
+      .muscle-status-card {
+        background: #0d1117;
+        border: 1px solid #30363d;
+        border-radius: 8px;
+        padding: 16px;
+      }
+      .muscle-status-card.ready {
+        border-color: #26a641;
+        background: rgba(38, 166, 65, 0.05);
+      }
+      .muscle-status-card.recovering {
+        border-color: #ffa657;
+        background: rgba(255, 166, 87, 0.05);
+      }
+      .muscle-status-card.fatigued {
+        border-color: #da3633;
+        background: rgba(218, 54, 51, 0.05);
+      }
+      .muscle-status-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 12px;
+      }
+      .muscle-name {
+        font-size: 16px;
+        font-weight: 700;
+        color: #f0f6fc;
+      }
+      .status-badge {
+        padding: 4px 10px;
+        border-radius: 12px;
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+      }
+      .status-badge.rested {
+        background: #26a641;
+        color: #fff;
+      }
+      .status-badge.recovered {
+        background: #7ee787;
+        color: #0d1117;
+      }
+      .status-badge.recovering {
+        background: #ffa657;
+        color: #0d1117;
+      }
+      .status-badge.fatigued {
+        background: #da3633;
+        color: #fff;
+      }
+      .status-badge.untrained {
+        background: #8b949e;
+        color: #fff;
+      }
+      .muscle-stats {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        margin-top: 12px;
+      }
+      .muscle-stat {
+        font-size: 12px;
+        color: #8b949e;
+      }
+      .muscle-stat-value {
+        font-size: 16px;
+        font-weight: 700;
+        color: #8ab4f8;
+      }
+      .exercise-list {
+        list-style: none;
+      }
+      .exercise-item {
+        background: #0d1117;
+        border: 1px solid #30363d;
+        border-radius: 8px;
+        padding: 16px;
+        margin-bottom: 12px;
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 16px;
+        align-items: center;
+      }
+      .exercise-info {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+      .exercise-name {
+        font-size: 16px;
+        font-weight: 700;
+        color: #f0f6fc;
+      }
+      .exercise-muscle {
+        font-size: 12px;
+        color: #8b949e;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+      .exercise-prescription {
+        display: flex;
+        gap: 16px;
+        align-items: center;
+      }
+      .prescription-item {
+        text-align: center;
+        padding: 8px 12px;
+        background: #161b22;
+        border: 1px solid #30363d;
+        border-radius: 6px;
+      }
+      .prescription-value {
+        font-size: 18px;
+        font-weight: 700;
+        color: #8ab4f8;
+      }
+      .prescription-label {
+        font-size: 10px;
+        color: #8b949e;
+        text-transform: uppercase;
+      }
+      .loading {
+        text-align: center;
+        padding: 60px 20px;
+        color: #8b949e;
+        font-size: 16px;
+      }
+      .no-data {
+        color: #8b949e;
+        text-align: center;
+        padding: 40px 20px;
+        font-size: 14px;
+      }
+      .workout-history-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 16px;
+      }
+      .workout-card {
+        background: #0d1117;
+        border: 1px solid #30363d;
+        border-radius: 8px;
+        padding: 16px;
+        transition: all 0.2s;
+      }
+      .workout-card:hover {
+        border-color: #8ab4f8;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      }
+      .workout-header {
+        margin-bottom: 12px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid #30363d;
+      }
+      .workout-title {
+        font-size: 16px;
+        font-weight: 700;
+        color: #c9d1d9;
+        margin-bottom: 4px;
+      }
+      .workout-date {
+        font-size: 11px;
+        color: #8b949e;
+      }
+      .workout-count {
+        font-size: 11px;
+        color: #8ab4f8;
+        margin-top: 2px;
+      }
+      .workout-exercises {
+        list-style: none;
+      }
+      .workout-exercise-item {
+        padding: 6px 0;
+        font-size: 13px;
+        color: #c9d1d9;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .exercise-bullet {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: #8ab4f8;
+        flex-shrink: 0;
+      }
+      .workout-exercise-name {
+        flex: 1;
+      }
+      .workout-muscle-tag {
+        font-size: 10px;
+        color: #8b949e;
+        background: #161b22;
+        padding: 2px 6px;
+        border-radius: 4px;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>💪 Workout Routines</h1>
+      <nav>
+        <a href="/">Dashboard</a>
+        <a href="/insights">Insights</a>
+        <a href="/routines" class="active">Routines</a>
+        <a href="/admin">Admin</a>
+      </nav>
+    </header>
+    <main>
+      <!-- Next Workout Recommendation -->
+      <div id="nextWorkout" class="loading">Analyzing your training schedule...</div>
+
+      <!-- Recommended Exercises -->
+      <section id="exerciseSection" style="display: none;">
+        <h2>📋 Recommended Exercises</h2>
+        <ul id="exerciseList" class="exercise-list"></ul>
+      </section>
+
+      <!-- Recent Workout History -->
+      <section id="workoutHistorySection" style="display: none;">
+        <h2>📅 Recent Workout History</h2>
+        <div id="workoutHistory" class="workout-history-grid"></div>
+      </section>
+
+      <!-- Muscle Group Recovery Status -->
+      <section>
+        <h2>🔄 Muscle Group Recovery Status</h2>
+        <div id="muscleStatus" class="muscle-group-grid loading">Loading recovery data...</div>
+      </section>
+    </main>
+
+    <script>
+      async function loadNextWorkout() {
+        try {
+          const response = await fetch('/api/next-workout');
+          const data = await response.json();
+          
+          // Determine card style based on suggestion
+          let cardClass = 'next-workout-card';
+          let icon = '🎯';
+          
+          if (data.needs_deload || data.suggested_focus.includes('Active Recovery')) {
+            cardClass += ' deload';
+            icon = '⚠️';
+          } else if (data.suggested_focus.includes('Rest Day')) {
+            cardClass += ' rest';
+            icon = '😴';
+          }
+          
+          // Create focus display
+          const focusDisplay = data.suggested_focus.join(', ');
+          
+          document.getElementById('nextWorkout').innerHTML = `
+            <div class="${cardClass}">
+              <div class="next-workout-header">
+                <div class="next-workout-icon">${icon}</div>
+                <div>
+                  <div class="next-workout-title">Train ${focusDisplay}</div>
+                  <div class="next-workout-subtitle">Priority: ${data.priority.toUpperCase()}</div>
+                </div>
+              </div>
+              <div class="next-workout-reason">
+                💡 ${data.reason}
+              </div>
+            </div>
+          `;
+          
+          // Show recommended exercises if available
+          if (data.recommended_exercises && data.recommended_exercises.length > 0) {
+            document.getElementById('exerciseSection').style.display = 'block';
+            
+            const exercisesHTML = data.recommended_exercises.map(ex => `
+              <li class="exercise-item">
+                <div class="exercise-info">
+                  <div class="exercise-name">${ex.exercise}</div>
+                  <div class="exercise-muscle">${ex.muscle_group}</div>
+                </div>
+                <div class="exercise-prescription">
+                  <div class="prescription-item">
+                    <div class="prescription-value">${ex.weight}</div>
+                    <div class="prescription-label">lbs</div>
+                  </div>
+                  <div class="prescription-item">
+                    <div class="prescription-value">${ex.sets}</div>
+                    <div class="prescription-label">sets</div>
+                  </div>
+                  <div class="prescription-item">
+                    <div class="prescription-value">${ex.reps}</div>
+                    <div class="prescription-label">reps</div>
+                  </div>
+                </div>
+              </li>
+            `).join('');
+            
+            document.getElementById('exerciseList').innerHTML = exercisesHTML;
+          } else {
+            document.getElementById('exerciseSection').style.display = 'none';
+          }
+          
+          // Display muscle group status
+          const muscleGroups = Object.keys(data.muscle_group_status);
+          
+          if (muscleGroups.length === 0) {
+            document.getElementById('muscleStatus').innerHTML = 
+              '<div class="no-data">No muscle group data available yet. Complete more workouts to see recovery status!</div>';
+            return;
+          }
+          
+          const statusHTML = muscleGroups.map(mg => {
+            const status = data.muscle_group_status[mg];
+            let statusClass = '';
+            
+            if (status.status === 'rested' || status.status === 'recovered') {
+              statusClass = 'ready';
+            } else if (status.status === 'recovering') {
+              statusClass = 'recovering';
+            } else if (status.status === 'fatigued') {
+              statusClass = 'fatigued';
+            }
+            
+            const lastTrained = status.last_trained 
+              ? new Date(status.last_trained).toLocaleDateString('en', { month: 'short', day: 'numeric' })
+              : 'Never';
+            
+            return `
+              <div class="muscle-status-card ${statusClass}">
+                <div class="muscle-status-header">
+                  <div class="muscle-name">${mg}</div>
+                  <div class="status-badge ${status.status}">${status.status}</div>
+                </div>
+                <div class="muscle-stats">
+                  <div class="muscle-stat">
+                    <div class="muscle-stat-value">${Math.round(status.days_since_trained)}</div>
+                    <div>days since trained</div>
+                  </div>
+                  <div class="muscle-stat">
+                    <div class="muscle-stat-value">${status.frequency_2_weeks}</div>
+                    <div>workouts (2 weeks)</div>
+                  </div>
+                </div>
+                <div style="margin-top: 12px; font-size: 12px; color: #8b949e;">
+                  Last trained: ${lastTrained}
+                </div>
+              </div>
+            `;
+          }).join('');
+          
+          document.getElementById('muscleStatus').innerHTML = statusHTML;
+          
+          // Display recent workout history
+          if (data.recent_workouts && data.recent_workouts.length > 0) {
+            document.getElementById('workoutHistorySection').style.display = 'block';
+            
+            const workoutHTML = data.recent_workouts.map(workout => {
+              const workoutDate = new Date(workout.date);
+              const formattedDate = workoutDate.toLocaleDateString('en', { 
+                month: 'short', 
+                day: 'numeric',
+                year: 'numeric'
+              });
+              
+              const exercisesHTML = workout.exercises.map(ex => `
+                <li class="workout-exercise-item">
+                  <div class="exercise-bullet"></div>
+                  <div class="workout-exercise-name">${ex.name}</div>
+                  <div class="workout-muscle-tag">${ex.muscle_group}</div>
+                </li>
+              `).join('');
+              
+              return `
+                <div class="workout-card">
+                  <div class="workout-header">
+                    <div class="workout-title">${workout.title || 'Workout'}</div>
+                    <div class="workout-date">${formattedDate}</div>
+                    <div class="workout-count">${workout.exercise_count} exercises</div>
+                  </div>
+                  <ul class="workout-exercises">
+                    ${exercisesHTML}
+                  </ul>
+                </div>
+              `;
+            }).join('');
+            
+            document.getElementById('workoutHistory').innerHTML = workoutHTML;
+          } else {
+            document.getElementById('workoutHistorySection').style.display = 'none';
+          }
+          
+        } catch (error) {
+          console.error('Error loading next workout:', error);
+          document.getElementById('nextWorkout').innerHTML = 
+            '<div class="no-data" style="color:#f28482;">Error loading workout recommendations. Please try again later.</div>';
+          document.getElementById('muscleStatus').innerHTML = 
+            '<div class="no-data" style="color:#f28482;">Error loading muscle group status.</div>';
+        }
+      }
+
+      // Load data on page load
+      loadNextWorkout();
+
+      // Auto-refresh every 5 minutes
+      setInterval(loadNextWorkout, 5 * 60 * 1000);
+    </script>
+  </body>
+</html>
+
