@@ -232,6 +232,27 @@
       </div>
       {% endif %}
 
+      <!-- Settings -->
+      <section>
+        <h2>⚙️ Settings</h2>
+        <p>Configure automatic sync interval.</p>
+        
+        <div style="margin-bottom: 16px;">
+          <label style="display: block; font-size: 14px; color: #8b949e; margin-bottom: 8px;">
+            Automatic Sync Interval
+          </label>
+          <select id="syncInterval" style="background: #0d1117; color: #c9d1d9; border: 1px solid #30363d; padding: 8px 12px; border-radius: 6px; font-size: 14px; width: 200px;">
+            <option value="15">Every 15 minutes</option>
+            <option value="60">Every 1 hour</option>
+            <option value="240">Every 4 hours</option>
+          </select>
+          <button onclick="saveSyncInterval()" style="margin-left: 12px; background: #238636; color: #fff; border: 1px solid #2ea043; padding: 8px 16px; border-radius: 6px; font-size: 14px; cursor: pointer;">
+            Save
+          </button>
+        </div>
+        <div id="settingsStatus" style="font-size: 13px; color: #7ee787; display: none;">✅ Settings saved!</div>
+      </section>
+
       <!-- Sync Controls -->
       <section>
         <h2>🔄 Data Synchronization</h2>
@@ -259,8 +280,8 @@
 
         <div class="info-grid">
           <div class="info-item">
-            <div class="info-label">Sync Interval</div>
-            <div class="info-value">Every 15 minutes</div>
+            <div class="info-label">Current Interval</div>
+            <div class="info-value" id="currentInterval">Every 15 minutes</div>
           </div>
           <div class="info-item">
             <div class="info-label">Last Action</div>
@@ -385,6 +406,70 @@
         </div>
       </section>
     </main>
+    
+    <script>
+      // Load current sync interval on page load
+      async function loadSyncInterval() {
+        try {
+          const response = await fetch('/api/settings/sync-interval');
+          const data = await response.json();
+          const interval = data.interval_minutes || 15;
+          
+          // Update dropdown
+          document.getElementById('syncInterval').value = interval;
+          
+          // Update display
+          updateIntervalDisplay(interval);
+        } catch (error) {
+          console.error('Error loading sync interval:', error);
+        }
+      }
+      
+      // Save sync interval
+      async function saveSyncInterval() {
+        const interval = document.getElementById('syncInterval').value;
+        
+        try {
+          const response = await fetch('/api/settings/sync-interval', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ interval_minutes: parseInt(interval) })
+          });
+          
+          if (response.ok) {
+            updateIntervalDisplay(interval);
+            
+            // Show success message
+            const status = document.getElementById('settingsStatus');
+            status.style.display = 'block';
+            setTimeout(() => {
+              status.style.display = 'none';
+            }, 3000);
+          }
+        } catch (error) {
+          console.error('Error saving sync interval:', error);
+        }
+      }
+      
+      // Update interval display text
+      function updateIntervalDisplay(minutes) {
+        const display = document.getElementById('currentInterval');
+        if (minutes == 15) {
+          display.textContent = 'Every 15 minutes';
+        } else if (minutes == 60) {
+          display.textContent = 'Every 1 hour';
+        } else if (minutes == 240) {
+          display.textContent = 'Every 4 hours';
+        } else {
+          display.textContent = `Every ${minutes} minutes`;
+        }
+      }
+      
+      // Load on page load
+      loadSyncInterval();
+    </script>
   </body>
 </html>
 

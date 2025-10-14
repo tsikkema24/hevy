@@ -502,7 +502,7 @@ async def volume_trends(weeks: int = 12) -> Dict[str, Any]:
 @router.get("/workout-predictions")
 async def workout_predictions() -> Dict[str, Any]:
     """
-    AI-based workout predictions with recommended weights for next session
+    AI-based workout predictions grouped by workout routines
     Analyzes recent performance and suggests progressive overload
     """
     async with get_session() as session:
@@ -518,7 +518,7 @@ async def workout_predictions() -> Dict[str, Any]:
         recent_workouts = workouts_result.all()
         
         if not recent_workouts:
-            return {"predictions": [], "message": "Need at least 8 weeks of data for predictions"}
+            return {"routines": [], "message": "Need at least 8 weeks of data for predictions"}
         
         # Get all workout exercises and sets
         we_result = await session.exec(select(WorkoutExercise))
@@ -534,20 +534,26 @@ async def workout_predictions() -> Dict[str, Any]:
                 sets_by_we[s.workout_exercise_id] = []
             sets_by_we[s.workout_exercise_id].append(s)
         
-        # Analyze exercise patterns - find most frequent exercises
-        exercise_frequency = {}
-        exercise_history = {}  # exercise_id -> list of (date, max_weight, avg_weight, total_volume, sets)
+        # Track which exercises belong to which workout routines
+        # routine_name -> {exercise_id -> history}
+        routine_exercises = {}
+        exercise_history_by_routine = {}
         
         for we in all_we:
-            if we.exercise_id not in exercise_frequency:
-                exercise_frequency[we.exercise_id] = 0
-                exercise_history[we.exercise_id] = []
-            exercise_frequency[we.exercise_id] += 1
-            
-            # Get workout date
             workout = next((w for w in recent_workouts if w.id == we.workout_id), None)
             if not workout or we.id not in sets_by_we:
                 continue
+            
+            routine_name = workout.title or "Workout"
+            
+            if routine_name not in routine_exercises:
+                routine_exercises[routine_name] = set()
+                exercise_history_by_routine[routine_name] = {}
+            
+            routine_exercises[routine_name].add(we.exercise_id)
+            
+            if we.exercise_id not in exercise_history_by_routine[routine_name]:
+                exercise_history_by_routine[routine_name][we.exercise_id] = []
             
             sets = sets_by_we[we.id]
             if not sets:
@@ -569,7 +575,7 @@ async def workout_predictions() -> Dict[str, Any]:
                     continue
             
             if weights:
-                exercise_history[we.exercise_id].append({
+                exercise_history_by_routine[routine_name][we.exercise_id].append({
                     "date": workout.started_at,
                     "max_weight": max(weights),
                     "avg_weight": sum(weights) / len(weights),
@@ -578,80 +584,90 @@ async def workout_predictions() -> Dict[str, Any]:
                     "total_reps": total_reps
                 })
         
-        # Get top 8 most frequent exercises
-        top_exercises = sorted(exercise_frequency.items(), key=lambda x: x[1], reverse=True)[:8]
+        # Generate predictions grouped by routine
+        routines = []
+        for routine_name, exercises in routine_exercises.items():
+            predictions = []
+            
+            for ex_id in exercises:
+                if ex_id not in exercise_history_by_routine[routine_name]:
+                    continue
+                    
+                history = exercise_history_by_routine[routine_name][ex_id]
+                if len(history) < 2:
+                    continue
+                
+                history = sorted(history, key=lambda x: x["date"])
+                recent_sessions = history[-5:]  # Last 5 sessions
+                
+                # Calculate trends
+                recent_max_weights = [s["max_weight"] for s in recent_sessions]
+                recent_volumes = [s["total_volume"] for s in recent_sessions]
+                
+                current_max = recent_max_weights[-1]
+                avg_sets = sum(s["sets"] for s in recent_sessions) / len(recent_sessions)
+                avg_reps_per_set = sum(s["total_reps"] for s in recent_sessions) / sum(s["sets"] for s in recent_sessions)
+                
+                # Calculate progression rate
+                if len(recent_max_weights) >= 3:
+                    weights_trend = recent_max_weights[-1] - recent_max_weights[0]
+                    sessions_count = len(recent_max_weights)
+                    progression_per_session = weights_trend / (sessions_count - 1) if sessions_count > 1 else 0
+                else:
+                    progression_per_session = 0
+                
+                # Predict next workout weights
+                if progression_per_session > 0.5:
+                    recommended_weight = current_max + 2.5
+                    confidence = "high"
+                    reason = "Consistent progression detected"
+                elif progression_per_session > -0.5:
+                    recommended_weight = current_max
+                    confidence = "medium"
+                    reason = "Maintain weight, focus on volume/form"
+                else:
+                    recommended_weight = current_max * 0.9
+                    confidence = "medium"
+                    reason = "Consider deload or form check"
+                
+                # Round to nearest 2.5 lbs
+                recommended_weight = round(recommended_weight / 2.5) * 2.5
+                
+                # Calculate recommended sets and reps
+                recommended_sets = int(round(avg_sets))
+                recommended_reps = int(round(avg_reps_per_set))
+                
+                # Determine muscle group for context
+                exercise_name = exercise_map.get(ex_id, "Unknown")
+                muscle_group = categorize_exercise(exercise_name)
+                
+                predictions.append({
+                    "exercise_id": ex_id,
+                    "exercise_name": exercise_name,
+                    "muscle_group": muscle_group,
+                    "current_max_weight": round(current_max, 1),
+                    "recommended_weight": round(recommended_weight, 1),
+                    "recommended_sets": recommended_sets,
+                    "recommended_reps": recommended_reps,
+                    "confidence": confidence,
+                    "reason": reason,
+                    "sessions_analyzed": len(recent_sessions),
+                    "progression_rate": round(progression_per_session, 2)
+                })
+            
+            if predictions:
+                routines.append({
+                    "routine_name": routine_name,
+                    "exercise_count": len(predictions),
+                    "predictions": predictions
+                })
         
-        predictions = []
-        for ex_id, freq in top_exercises:
-            if ex_id not in exercise_history or len(exercise_history[ex_id]) < 2:
-                continue
-            
-            history = sorted(exercise_history[ex_id], key=lambda x: x["date"])
-            recent_sessions = history[-5:]  # Last 5 sessions
-            
-            # Calculate trends
-            recent_max_weights = [s["max_weight"] for s in recent_sessions]
-            recent_volumes = [s["total_volume"] for s in recent_sessions]
-            
-            current_max = recent_max_weights[-1]
-            avg_sets = sum(s["sets"] for s in recent_sessions) / len(recent_sessions)
-            avg_reps_per_set = sum(s["total_reps"] for s in recent_sessions) / sum(s["sets"] for s in recent_sessions)
-            
-            # Calculate progression rate
-            if len(recent_max_weights) >= 3:
-                # Linear regression for weight progression
-                weights_trend = recent_max_weights[-1] - recent_max_weights[0]
-                sessions_count = len(recent_max_weights)
-                progression_per_session = weights_trend / (sessions_count - 1) if sessions_count > 1 else 0
-            else:
-                progression_per_session = 0
-            
-            # Predict next workout weights
-            # Conservative approach: 2.5-5 lbs increase if progressing, maintain if stable
-            if progression_per_session > 0.5:
-                # Progressing well - suggest small increase
-                recommended_weight = current_max + 2.5
-                confidence = "high"
-                reason = "Consistent progression detected"
-            elif progression_per_session > -0.5:
-                # Stable - suggest same weight with volume increase
-                recommended_weight = current_max
-                confidence = "medium"
-                reason = "Maintain weight, focus on volume/form"
-            else:
-                # Regressing - suggest deload
-                recommended_weight = current_max * 0.9
-                confidence = "medium"
-                reason = "Consider deload or form check"
-            
-            # Round to nearest 2.5 lbs
-            recommended_weight = round(recommended_weight / 2.5) * 2.5
-            
-            # Calculate recommended sets and reps
-            recommended_sets = int(round(avg_sets))
-            recommended_reps = int(round(avg_reps_per_set))
-            
-            # Determine muscle group for context
-            exercise_name = exercise_map.get(ex_id, "Unknown")
-            muscle_group = categorize_exercise(exercise_name)
-            
-            predictions.append({
-                "exercise_id": ex_id,
-                "exercise_name": exercise_name,
-                "muscle_group": muscle_group,
-                "current_max_weight": round(current_max, 1),
-                "recommended_weight": round(recommended_weight, 1),
-                "recommended_sets": recommended_sets,
-                "recommended_reps": recommended_reps,
-                "confidence": confidence,
-                "reason": reason,
-                "sessions_analyzed": len(recent_sessions),
-                "progression_rate": round(progression_per_session, 2)
-            })
+        # Sort routines by name for consistent display
+        routines.sort(key=lambda x: x["routine_name"])
         
         return {
-            "predictions": predictions,
-            "total_exercises": len(predictions),
+            "routines": routines,
+            "total_routines": len(routines),
             "analysis_period": "Last 8 weeks"
         }
 

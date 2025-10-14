@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import os
+import json
 from typing import List
+from pathlib import Path
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from apscheduler.triggers.cron import CronTrigger
+from apscheduler.triggers.interval import IntervalTrigger
 from sqlmodel import select
 
 from .hevy_client import fetch_latest_workouts, fetch_all_workouts, HevyWorkout
@@ -12,6 +15,7 @@ from ..models import Workout, Exercise, WorkoutExercise, SetLog
 
 
 scheduler = AsyncIOScheduler()
+SETTINGS_FILE = Path("settings.json")
 
 
 async def sync_latest_workouts(limit: int = 50) -> int:
@@ -73,13 +77,6 @@ async def sync_latest_workouts(limit: int = 50) -> int:
         return inserted
     except Exception:
         return 0
-
-
-def start_scheduler() -> None:
-    if scheduler.running:
-        return
-    scheduler.add_job(sync_latest_workouts, CronTrigger(minute="*/15"))
-    scheduler.start()
 
 
 async def sync_all_workouts(page_size: int = 50) -> int:
@@ -145,3 +142,57 @@ async def sync_all_workouts(page_size: int = 50) -> int:
     except Exception as e:
         print(f"[hevy] backfill: error {e}")
         return 0
+
+
+def get_sync_interval() -> int:
+    """Get the current sync interval in minutes from settings file"""
+    if SETTINGS_FILE.exists():
+        try:
+            with open(SETTINGS_FILE, 'r') as f:
+                settings = json.load(f)
+                return settings.get('sync_interval_minutes', 15)
+        except Exception:
+            pass
+    return 15  # default to 15 minutes
+
+
+def update_sync_interval(interval_minutes: int) -> None:
+    """Update the sync interval and reschedule the job"""
+    # Save to settings file
+    settings = {}
+    if SETTINGS_FILE.exists():
+        try:
+            with open(SETTINGS_FILE, 'r') as f:
+                settings = json.load(f)
+        except Exception:
+            pass
+    
+    settings['sync_interval_minutes'] = interval_minutes
+    
+    with open(SETTINGS_FILE, 'w') as f:
+        json.dump(settings, f)
+    
+    # Reschedule the job
+    if scheduler.running:
+        scheduler.remove_job('sync_workouts')
+        scheduler.add_job(
+            sync_latest_workouts,
+            IntervalTrigger(minutes=interval_minutes),
+            id='sync_workouts',
+            replace_existing=True
+        )
+        print(f"[hevy] scheduler: updated sync interval to {interval_minutes} minutes")
+
+
+def start_scheduler():
+    """Start the background scheduler with the configured interval"""
+    if not scheduler.running:
+        interval = get_sync_interval()
+        scheduler.add_job(
+            sync_latest_workouts,
+            IntervalTrigger(minutes=interval),
+            id='sync_workouts',
+            replace_existing=True
+        )
+        scheduler.start()
+        print(f"[hevy] scheduler: started with {interval} minute interval")

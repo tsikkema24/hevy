@@ -1,12 +1,13 @@
-from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi import FastAPI, Request, Body
+from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi import APIRouter
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
+from typing import Dict
 
 from .settings import get_settings
 from .db import init_db
-from .services.sync import start_scheduler, sync_latest_workouts, sync_all_workouts
+from .services.sync import start_scheduler, sync_latest_workouts, sync_all_workouts, update_sync_interval, get_sync_interval
 from .services.stats import router as stats_router
 from .services.debug import router as debug_router
 
@@ -94,3 +95,18 @@ async def reset_db(request: Request):
     except Exception:
         url = request.url_for("admin")
         return RedirectResponse(url=str(url) + "?error=reset", status_code=303)
+
+
+@app.get("/api/settings/sync-interval")
+async def get_sync_interval_api():
+    """Get the current sync interval setting"""
+    interval = get_sync_interval()
+    return {"interval_minutes": interval}
+
+
+@app.post("/api/settings/sync-interval")
+async def set_sync_interval_api(data: Dict = Body(...)):
+    """Update the sync interval setting"""
+    interval_minutes = data.get("interval_minutes", 15)
+    update_sync_interval(interval_minutes)
+    return {"status": "ok", "interval_minutes": interval_minutes}

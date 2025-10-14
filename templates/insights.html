@@ -243,6 +243,11 @@
         align-items: center;
         gap: 8px;
       }
+      .prediction-recommendation.deload {
+        background: rgba(255, 166, 87, 0.1);
+        border: 1px solid #ffa657;
+        color: #ffa657;
+      }
       .deload-alert {
         background: #161b22;
         border: 2px solid;
@@ -259,8 +264,8 @@
         background: rgba(255, 166, 87, 0.05);
       }
       .deload-alert.good {
-        border-color: #26a641;
-        background: rgba(38, 166, 65, 0.05);
+        border-color: #ffa657;
+        background: rgba(255, 166, 87, 0.05);
       }
       .deload-header {
         display: flex;
@@ -342,13 +347,14 @@
           const response = await fetch('/api/workout-predictions');
           const data = await response.json();
           
-          if (!data.predictions || data.predictions.length === 0) {
+          if (!data.routines || data.routines.length === 0) {
             document.getElementById('workoutPredictions').innerHTML = 
               '<div class="no-data">Not enough training data yet. Complete a few more workouts to get predictions!</div>';
             return;
           }
 
-          const predictionsHTML = data.predictions.map(pred => {
+          const routinesHTML = data.routines.map(routine => {
+            const predictionsHTML = routine.predictions.map(pred => {
             const weightChange = pred.recommended_weight - pred.current_max_weight;
             const changeIcon = weightChange > 0 ? '⬆️' : weightChange < 0 ? '⬇️' : '➡️';
             const changeColor = weightChange > 0 ? '#7ee787' : weightChange < 0 ? '#ffa657' : '#8ab4f8';
@@ -381,15 +387,27 @@
                   </div>
                 </div>
                 
-                <div class="prediction-recommendation">
+                <div class="prediction-recommendation ${pred.reason.toLowerCase().includes('deload') || pred.reason.toLowerCase().includes('form check') ? 'deload' : ''}">
                   <span>💡</span>
                   <span>${pred.reason}</span>
                 </div>
               </div>
             `;
+            }).join('');
+
+            return `
+              <div style="margin-bottom: 32px;">
+                <h3 style="color: #c9d1d9; font-size: 18px; font-weight: 600; margin-bottom: 16px; padding-bottom: 8px; border-bottom: 1px solid #30363d;">
+                  ${routine.routine_name} <span style="color: #8b949e; font-size: 14px; font-weight: 400;">(${routine.exercise_count} exercises)</span>
+                </h3>
+                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px;">
+                  ${predictionsHTML}
+                </div>
+              </div>
+            `;
           }).join('');
           
-          document.getElementById('workoutPredictions').innerHTML = predictionsHTML;
+          document.getElementById('workoutPredictions').innerHTML = routinesHTML;
           
         } catch (error) {
           console.error('Error loading predictions:', error);
@@ -405,7 +423,7 @@
           const data = await response.json();
           
           let alertClass = 'good';
-          let icon = '✅';
+          let icon = '⚡';
           let title = 'Training Volume Optimal';
           
           if (data.needs_deload) {
