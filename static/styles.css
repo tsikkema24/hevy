@@ -1,0 +1,6 @@
+body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, sans-serif; margin: 0; padding: 0; background: #0b1020; color: #e6e6e6; }
+header { background: #111833; padding: 16px 24px; border-bottom: 1px solid #1e2a4a; }
+h1 { margin: 0; font-size: 22px; }
+main { padding: 24px; }
+a { color: #8ab4f8; }
+section { background: #0f152b; padding: 16px; border: 1px solid #1e2a4a; border-radius: 8px; max-width: 800px; }

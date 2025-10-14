@@ -1,0 +1,70 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{{ app_name }}</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <header>
+      <h1>{{ app_name }}</h1>
+    </header>
+    <main>
+      <section>
+        <p>Welcome! Connect your Hevy data and view your workout dashboard.</p>
+        <ul>
+          <li><a href="/healthz">Health check</a></li>
+        </ul>
+        <form method="post" action="/sync-now" style="margin-top:12px;">
+          <button type="submit">Sync now</button>
+        </form>
+        <form method="post" action="/sync-all" style="margin-top:8px;">
+          <button type="submit">Backfill all</button>
+        </form>
+        {% if request.query_params.get('synced') %}
+        <p style="margin-top:8px; color:#8ab4f8;">Synced {{ request.query_params.get('synced') }} new workouts.</p>
+        {% elif request.query_params.get('backfilled') %}
+        <p style="margin-top:8px; color:#8ab4f8;">Backfilled {{ request.query_params.get('backfilled') }} workouts.</p>
+        {% elif request.query_params.get('error') == 'sync' %}
+        <p style="margin-top:8px; color:#f28482;">Sync failed. Please try again.</p>
+        {% elif request.query_params.get('error') == 'backfill' %}
+        <p style="margin-top:8px; color:#f28482;">Backfill failed. Please try again.</p>
+        {% endif %}
+      </section>
+      <section style="margin-top:16px;">
+        <h2 style="margin-top:0; font-size:18px;">Weekly workouts</h2>
+        <canvas id="weeklyChart" height="120"></canvas>
+      </section>
+    </main>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script>
+      async function loadWeekly() {
+        const res = await fetch('/api/weekly-workouts');
+        const json = await res.json();
+        const ctx = document.getElementById('weeklyChart');
+        if (!ctx) return;
+        new Chart(ctx, {
+          type: 'bar',
+          data: {
+            labels: json.labels,
+            datasets: [{
+              label: 'Workouts per week',
+              data: json.data,
+              backgroundColor: '#8ab4f8'
+            }]
+          },
+          options: {
+            responsive: true,
+            scales: {
+              x: { ticks: { color: '#cbd5e1' }, grid: { color: '#1e2a4a' } },
+              y: { ticks: { color: '#cbd5e1' }, grid: { color: '#1e2a4a' }, beginAtZero: true }
+            },
+            plugins: { legend: { labels: { color: '#cbd5e1' } } }
+          }
+        });
+      }
+      loadWeekly();
+    </script>
+  </body>
+</html>

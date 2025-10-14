@@ -1,0 +1,61 @@
+from fastapi import FastAPI, Request
+from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi import APIRouter
+from fastapi.templating import Jinja2Templates
+from fastapi.staticfiles import StaticFiles
+
+from .settings import get_settings
+from .db import init_db
+from .services.sync import start_scheduler, sync_latest_workouts, sync_all_workouts
+from .services.stats import router as stats_router
+from .services.debug import router as debug_router
+
+app = FastAPI(title="Hevy Dashboard")
+
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+templates = Jinja2Templates(directory="templates")
+app.include_router(stats_router, prefix="/api")
+app.include_router(debug_router, prefix="/api")
+
+
+@app.get("/healthz")
+async def healthz():
+    return {"status": "ok"}
+
+
+@app.get("/", response_class=HTMLResponse)
+async def index(request: Request):
+    settings = get_settings()
+    return templates.TemplateResponse(
+        "index.html", {"request": request, "app_name": "Hevy Dashboard"}
+    )
+
+
+@app.on_event("startup")
+async def on_startup() -> None:
+    await init_db()
+    start_scheduler()
+
+
+@app.post("/sync-now")
+async def sync_now(request: Request):
+    try:
+        inserted = await sync_latest_workouts(limit=50)
+        url = request.url_for("index")
+        redirect_url = str(url) + f"?synced={inserted}"
+        return RedirectResponse(url=redirect_url, status_code=303)
+    except Exception:
+        url = request.url_for("index")
+        return RedirectResponse(url=str(url) + "?error=sync", status_code=303)
+
+
+@app.post("/sync-all")
+async def sync_all(request: Request):
+    try:
+        inserted = await sync_all_workouts(page_size=50)
+        url = request.url_for("index")
+        return RedirectResponse(url=str(url) + f"?backfilled={inserted}", status_code=303)
+    except Exception:
+        url = request.url_for("index")
+        return RedirectResponse(url=str(url) + "?error=backfill", status_code=303)
